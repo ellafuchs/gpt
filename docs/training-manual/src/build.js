@@ -97,7 +97,8 @@ numbering.config.push({ reference: 'bul', levels: [
 ] });
 
 // ---------- parse content ----------
-const files = ['part1.txt', 'part2.txt', 'part3.txt', 'part4.txt', 'part5.txt'];
+const CHANGES = !!process.env.CHANGES;
+const files = CHANGES ? ['changes.txt'] : ['part1.txt', 'part2.txt', 'part3.txt', 'part4.txt', 'part5.txt'];
 let lines = [];
 for (const f of files) lines = lines.concat(fs.readFileSync(path.join(DIR, 'content', f), 'utf8').split('\n'));
 
@@ -132,11 +133,10 @@ function heading(text, level) {
   });
 }
 
-function chapterOpener(title) {
-  chapterNo += 1;
-  toc.push({ level: 1, title, no: chapterNo });
+function chapterOpener(title, label) {
+  if (!label) { chapterNo += 1; toc.push({ level: 1, title, no: chapterNo }); }
   const n = String(chapterNo).padStart(2, '0');
-  const pre = chapterNo === 1 ? [] : [pageBreak()];
+  const pre = (chapterNo <= 1 || label) ? [] : [pageBreak()];
   return [
     ...pre,
     new Table({
@@ -151,7 +151,7 @@ function chapterOpener(title) {
           margins: { top: 240, bottom: 240, left: 360, right: 360 },
           children: [
             new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: 60 },
-              children: [new TextRun({ font: HF, rightToLeft: true, text: `פרק ${n}`, bold: true, size: 22, color: C.tealLight })] }),
+              children: [new TextRun({ font: HF, rightToLeft: true, text: label || `פרק ${n}`, bold: true, size: 22, color: C.tealLight })] }),
             new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: 0 },
               children: [new TextRun({ font: HF, rightToLeft: true, text: title, bold: true, size: 52, color: C.white })] }),
           ],
@@ -293,6 +293,7 @@ while (i < lines.length) {
   if (t === '[steps]' || t === '[/steps]') continue;
   let m;
   if ((m = t.match(/^\[chapter\]\s*(.+)$/))) { body.push(...chapterOpener(m[1].trim())); inNum = false; continue; }
+  if ((m = t.match(/^\[doctitle\]\s*(.+)$/))) { body.push(...chapterOpener(m[1].trim(), 'נספח לתוכנית ההכשרה לטכנאי הדמיה')); inNum = false; continue; }
   if ((m = t.match(/^\[final\]\s*(.+)$/))) {
     body.push(pageBreak(), spacer(1800));
     body.push(new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, spacing: { after: 200 },
@@ -432,7 +433,7 @@ toc.forEach((e) => {
   ] }));
 });
 tocKids.push(new Table({ visuallyRightToLeft: true, width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [wTitle, wPage], layout: TableLayoutType.FIXED, borders: noBorders, rows: tocRows }));
-fs.writeFileSync(path.join(DIR, 'toc.json'), JSON.stringify(toc));
+if (!CHANGES) fs.writeFileSync(path.join(DIR, 'toc.json'), JSON.stringify(toc));
 
 const emptyHF = { default: new Header({ children: [new Paragraph({ children: [] })] }) };
 const emptyFF = { default: new Footer({ children: [new Paragraph({ children: [] })] }) };
@@ -446,8 +447,9 @@ const doc = new Document({
     characterStyles: [{ id: 'Hyperlink', name: 'Hyperlink', basedOn: 'DefaultParagraphFont', run: { color: C.teal, underline: {} } }],
   },
   sections: [
+    ...(CHANGES ? [] : [
     { properties: { page: pageProps(0) }, headers: emptyHF, footers: emptyFF, children: cover },
-    { properties: { page: pageProps(MARGIN) }, headers: emptyHF, footers: emptyFF, children: tocKids },
+    { properties: { page: pageProps(MARGIN) }, headers: emptyHF, footers: emptyFF, children: tocKids }]),
     {
       properties: { page: { ...pageProps(MARGIN), pageNumbers: { start: 1 } } },
       headers: { default: new Header({ children: [new Paragraph({
@@ -466,6 +468,6 @@ const doc = new Document({
 });
 
 Packer.toBuffer(doc).then((buf) => {
-  fs.writeFileSync(path.join(DIR, 'out.docx'), buf);
-  console.log('wrote out.docx', buf.length, 'bytes; toc entries:', toc.length);
+  fs.writeFileSync(path.join(DIR, CHANGES ? 'changes.docx' : 'out.docx'), buf);
+  console.log('wrote docx', buf.length, 'bytes; toc entries:', toc.length);
 });
