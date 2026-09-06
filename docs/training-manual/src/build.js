@@ -225,18 +225,36 @@ function prosCons(pros, cons) {
 
 function needles(items) {
   const sw = { 'כתומה': 'E8862E', 'כחולה': '3B7FC4', 'ירוקה': '3FA75C', 'וורודה': 'D4649B' };
-  const w = Math.floor(CONTENT_W / items.length);
+  const thick = [6, 16, 28, 44];               // bottom bar grows: thin -> thick
+  const chipW = Math.floor(CONTENT_W * 0.19), arrowW = Math.floor((CONTENT_W - chipW * items.length) / (items.length - 1));
+  const cols = []; items.forEach((it, k) => { cols.push(chipW); if (k < items.length - 1) cols.push(arrowW); });
+  const chip = (it, k) => new TableCell({
+    width: { size: chipW, type: WidthType.DXA },
+    shading: { type: ShadingType.CLEAR, fill: sw[it] || 'CCCCCC', color: 'auto' },
+    borders: { top: noBorder, left: noBorder, right: noBorder, bottom: line(C.navy, thick[k] || 20) },
+    margins: { top: 150, bottom: 150, left: 60, right: 60 }, verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, spacing: { after: 0 },
+      children: [new TextRun({ font: HF, rightToLeft: true, text: it, bold: true, size: 23, color: 'FFFFFF' })] })],
+  });
+  const arrow = () => new TableCell({
+    width: { size: arrowW, type: WidthType.DXA }, borders: noBorders, verticalAlign: VerticalAlign.CENTER,
+    margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 0 },
+      children: [new TextRun({ font: 'Arial', text: '←', bold: true, size: 30, color: C.teal })] })],
+  });
+  const label = (txt, w, align) => new TableCell({
+    width: { size: w, type: WidthType.DXA }, borders: noBorders, margins: { top: 60, bottom: 0, left: 0, right: 0 },
+    children: [new Paragraph({ bidirectional: true, alignment: align, spacing: { after: 0 },
+      children: [new TextRun({ font: HF, rightToLeft: true, text: txt, bold: true, size: 19, color: C.gray })] })],
+  });
+  const row1 = []; items.forEach((it, k) => { row1.push(chip(it, k)); if (k < items.length - 1) row1.push(arrow()); });
+  const row2 = [label('הכי דקה', chipW, AlignmentType.START)];
+  for (let k = 1; k < cols.length - 1; k++) row2.push(new TableCell({ width: { size: cols[k], type: WidthType.DXA }, borders: noBorders, children: [new Paragraph({ children: [] })] }));
+  row2.push(label('הכי עבה', chipW, AlignmentType.END));
   return new Table({
     visuallyRightToLeft: true, width: { size: 100, type: WidthType.PERCENTAGE },
-    columnWidths: items.map(() => w), layout: TableLayoutType.FIXED, borders: noBorders,
-    rows: [new TableRow({ cantSplit: true, children: items.map((it) => new TableCell({
-      width: { size: w, type: WidthType.DXA },
-      shading: { type: ShadingType.CLEAR, fill: sw[it] || 'CCCCCC', color: 'auto' },
-      borders: { top: noBorder, bottom: noBorder, left: line('FFFFFF', 18), right: line('FFFFFF', 18) },
-      margins: { top: 170, bottom: 170, left: 80, right: 80 },
-      children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, spacing: { after: 0 },
-        children: [new TextRun({ font: HF, rightToLeft: true, text: it, bold: true, size: 23, color: 'FFFFFF' })] })],
-    })) })],
+    columnWidths: cols, layout: TableLayoutType.FIXED, borders: noBorders,
+    rows: [new TableRow({ cantSplit: true, children: row1 }), new TableRow({ cantSplit: true, children: row2 })],
   });
 }
 
@@ -288,7 +306,7 @@ while (i < lines.length) {
   }
   if ((m = t.match(/^\[(danger|warn|note|tip)\]\s*(.*)$/))) {
     let title = null, text = m[2];
-    if (text.includes('|')) { const k = text.indexOf('|'); title = text.slice(0, k).trim(); text = text.slice(k + 1).trim(); }
+    if (text.includes('|')) { const k = text.indexOf('|'); title = text.slice(0, k).trim(); text = text.slice(k + 1).trim().replace(/^[-–]\s*/, ''); }
     body.push(spacer(120), callout(m[1], title, text), spacer(180)); lastCallout = m[1]; inNum = false; continue;
   }
   if (t.startsWith('> ')) {
@@ -335,7 +353,7 @@ while (i < lines.length) {
   if ((m = raw.match(/^(\s*)-\s+(.+)$/))) {
     body.push(new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: 100, line: 330 },
       numbering: { reference: 'bul', level: m[1].length >= 2 ? 1 : 0 }, children: runs(m[2]) }));
-    inNum = false; continue;
+    continue;
   }
   if ((m = t.match(/^\d+\.\s+(.+)$/))) {
     if (!inNum) { numIdx++; inNum = true; }
