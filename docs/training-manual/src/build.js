@@ -168,7 +168,7 @@ function chapterOpener(title) {
   ];
 }
 
-function callout(kind, title, text) {
+function callout(kind, title, text, extra = []) {
   const m = {
     danger: { bg: C.dangerBg, bar: C.dangerLine, tc: C.dangerText },
     warn: { bg: C.warnBg, bar: C.warnLine, tc: C.warnText },
@@ -178,8 +178,10 @@ function callout(kind, title, text) {
   const kids = [];
   if (title) kids.push(new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: text ? 70 : 0, line: 300 },
     children: [new TextRun({ font: HF, rightToLeft: true, text: title, bold: true, size: 24, color: m.tc })] }));
-  if (text) kids.push(new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: 0, line: 330 },
+  if (text) kids.push(new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: extra.length ? 110 : 0, line: 330 },
     children: runs(text, { size: 23, color: m.tc }) }));
+  extra.forEach((x, k) => kids.push(new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: k === extra.length - 1 ? 0 : 110, line: 330 },
+    children: runs(x, { size: 23, color: m.tc }) })));
   return box(kids, { bg: m.bg, bar: m.bar });
 }
 
@@ -307,12 +309,9 @@ while (i < lines.length) {
   if ((m = t.match(/^\[(danger|warn|note|tip)\]\s*(.*)$/))) {
     let title = null, text = m[2];
     if (text.includes('|')) { const k = text.indexOf('|'); title = text.slice(0, k).trim(); text = text.slice(k + 1).trim().replace(/^[-–]\s*/, ''); }
-    body.push(spacer(120), callout(m[1], title, text), spacer(180)); lastCallout = m[1]; inNum = false; continue;
-  }
-  if (t.startsWith('> ')) {
-    const km = { danger: [C.dangerBg, C.dangerLine, C.dangerText], warn: [C.warnBg, C.warnLine, C.warnText], note: [C.noteBg, C.noteLine, C.noteText], tip: [C.tipBg, C.tipLine, C.tipText] }[lastCallout || 'note'];
-    body.push(box([new Paragraph({ bidirectional: true, alignment: AlignmentType.START, spacing: { after: 0, line: 330 }, children: runs(t.slice(2), { size: 23, color: km[2] }) })], { bg: km[0], bar: km[1] }), spacer(180));
-    continue;
+    const extra = [];
+    while (i < lines.length && lines[i].trim().startsWith('> ')) { extra.push(lines[i].trim().slice(2)); i++; }
+    body.push(spacer(120), callout(m[1], title, text, extra), spacer(180)); lastCallout = m[1]; inNum = false; continue;
   }
   if ((m = t.match(/^\[img\]\s*(.*)$/))) {
     const p = m[1].split('|').map((s) => s.trim());
